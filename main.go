@@ -4,12 +4,20 @@ import (
 	"context"
 	"log"
 	"os"
+	"time"
 
-	"github.com/chromedp/chromedp"
+	"github.com/chromedp/chromedp/runner"
+
+	cdp "github.com/chromedp/chromedp"
+)
+
+const (
+	pathWorkTime = "/lightning/n/teamspirit__AtkWorkTimeTab"
 )
 
 var (
-	domain   = os.Getenv("TS_DOMAIN")
+	domain = os.Getenv("TS_DOMAIN")
+
 	userName = os.Getenv("TS_USER_NAME")
 	password = os.Getenv("TS_PASSWORD")
 )
@@ -22,39 +30,41 @@ func main() {
 	defer cancel()
 
 	// create chrome instance
-	c, err := chromedp.New(ctxt)
+	c, err := cdp.New(ctxt, cdp.WithRunnerOptions(
+		runner.Flag("enable-automation", true),
+		runner.Flag("disable-notifications", true),
+	))
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// login
-	err = c.Run(ctxt, login())
-	if err != nil {
-		log.Fatal(err)
+	if err := c.Run(ctxt, login()); err != nil {
+		log.Fatalf("failed to login: %s", err)
 	}
 
 	// shutdown chrome
-	err = c.Shutdown(ctxt)
-	if err != nil {
+	if err := c.Shutdown(ctxt); err != nil {
 		log.Fatal(err)
 	}
 
 	// wait for chrome to finish
-	err = c.Wait()
-	if err != nil {
+	if err := c.Wait(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func login() chromedp.Tasks {
-	return chromedp.Tasks{
-		chromedp.Navigate(domain),
-		chromedp.WaitVisible("#username"),
-		chromedp.SendKeys("//input[@id='username']", userName),
-		chromedp.Click("#password", chromedp.NodeVisible),
-		chromedp.SendKeys("//input[@id='password']", password),
-		chromedp.Click("#Login", chromedp.NodeVisible),
-		//chromedp.WaitVisible("#mainTableBody"),
-		//chromedp.Sleep(2 * time.Second),
+func login() cdp.Tasks {
+	return cdp.Tasks{
+		cdp.Navigate(domain),
+		//cdp.WaitVisible("#username"),
+		cdp.SendKeys("//input[@id='username']", userName, cdp.NodeVisible),
+		cdp.Click("#password"),
+		cdp.SendKeys("//input[@id='password']", password),
+		cdp.Click("#Login"),
+		cdp.Sleep(2 * time.Second), //FIXME
+		cdp.Navigate(domain + pathWorkTime),
+		cdp.Sleep(10 * time.Second),
+		cdp.Click("#holyLink"),
 	}
 }
