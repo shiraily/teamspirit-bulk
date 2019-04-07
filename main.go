@@ -42,7 +42,10 @@ func bulkInput() error {
 	if err != nil {
 		return err
 	}
-	if err := inputWorkTime(workTimePage); err != nil {
+	if err := focusOnTimeSheet(workTimePage); err != nil {
+		return err
+	}
+	if err := inputWorkTime(workTimePage, 1, "10:02", false); err != nil {
 		return err
 	}
 	return nil
@@ -66,21 +69,28 @@ func login(driver *agouti.WebDriver) (*agouti.Page, error) {
 		return nil, fmt.Errorf("failed to click login button: %s", err)
 	}
 
-	time.Sleep(13 * time.Second)
+	time.Sleep(11 * time.Second)
 	return page, nil
 }
 
-func inputWorkTime(page *agouti.Page) error {
-	//TODO xpath page.FindByXPath("//div[@class='slds-template__container'][-1]//iframe")
-	selector := page.FindByClass("slds-template__container").AllByClass("oneAlohaPage").At(-1)
-	if err := selector.FindByXPath("//iframe").SwitchToFrame(); err != nil {
+func focusOnTimeSheet(page *agouti.Page) error {
+	if err := page.FindByXPath(
+		"//div[@class='slds-template__container']//div[@class='oneAlohaPage'][last()]//iframe",
+	).SwitchToFrame(); err != nil {
 		return fmt.Errorf("failed to switch to iframe: %s", err)
 	}
-	if err := page.FindByID("ttvTimeSt2019-04-01").Click(); err != nil {
-		//if err := page.FindByID(fmt.Sprintf("ttvTimeSt%04d-%02d-%02d", 2019, 4, 1)).Click(); err != nil {
+	return nil
+}
+
+func inputWorkTime(page *agouti.Page, day int, inputTime string, isStart bool) error {
+	if err := page.FindByID(fmt.Sprintf("ttvTimeSt%04d-%02d-%02d", 2019, 4, day)).Click(); err != nil {
 		return fmt.Errorf("failed to click 2019/4/1: %s", err)
 	}
-	inputTag := page.FindByID("dialogInputTime").All("input").At(0)
+	var index int
+	if !isStart {
+		index = 1
+	}
+	inputTag := page.FindByID("dialogInputTime").All("input").At(index)
 	time.Sleep(2 * time.Second)
 	if err := inputTag.Click(); err != nil {
 		return fmt.Errorf("failed to click start time: %s", err)
@@ -88,7 +98,7 @@ func inputWorkTime(page *agouti.Page) error {
 	if err := inputTag.Clear(); err != nil {
 		return fmt.Errorf("failed to clear start time: %s", err)
 	}
-	if err := inputTag.Fill("10:01"); err != nil {
+	if err := inputTag.Fill(inputTime); err != nil {
 		return fmt.Errorf("failed to input start time: %s", err)
 	}
 	//TODO click register button
