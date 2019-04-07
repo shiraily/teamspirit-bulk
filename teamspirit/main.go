@@ -2,6 +2,7 @@ package teamspirit
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -24,6 +25,12 @@ var (
 		}),
 	)
 )
+
+type WorkTime struct {
+	Day       int
+	StartTime string
+	EndTime   string
+}
 
 //TODO defer Driver.Stop
 type TeamSpirit struct {
@@ -91,30 +98,34 @@ func (t *TeamSpirit) focusOnTimeSheet() error {
 	return nil
 }
 
-func (t *TeamSpirit) BulkInput() error {
-	if err := t.InputWorkTime(1, "10:02", "19:00"); err != nil {
-		return err
+func (t *TeamSpirit) BulkInput(workTimes []WorkTime) error {
+	var err error
+	for _, workTime := range workTimes {
+		if err := t.Input(workTime); err != nil {
+			log.Print(err)
+			break
+		}
 	}
-	return nil
+	return err
 }
 
-func (t *TeamSpirit) InputWorkTime(day int, startTime, endTime string) error {
+func (t *TeamSpirit) Input(workTime WorkTime) error {
 	if err := t.page.FindByID(
-		fmt.Sprintf("ttvTimeSt%04d-%02d-%02d", t.year, t.month, day),
+		fmt.Sprintf("ttvTimeSt%04d-%02d-%02d", t.year, t.month, workTime.Day),
 	).Click(); err != nil {
-		return fmt.Errorf("failed to click %04d/%02d/%02d: %s", t.year, t.month, day, err)
+		return fmt.Errorf("failed to click %04d/%02d/%02d: %s", t.year, t.month, workTime.Day, err)
 	}
 	dialog := t.page.FindByID("dialogInputTime")
-	if err := inputTime(dialog, "startTime", startTime); err != nil {
+	if err := inputTime(dialog, "startTime", workTime.StartTime); err != nil {
 		return err
 	}
-	if err := inputTime(dialog, "endTime", endTime); err != nil {
+	if err := inputTime(dialog, "endTime", workTime.EndTime); err != nil {
 		return err
 	}
 	if err := dialog.FindByID("dlgInpTimeOk").Click(); err != nil {
 		return fmt.Errorf("failed to click OK button: %s", err)
 	}
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 	return nil
 }
 
