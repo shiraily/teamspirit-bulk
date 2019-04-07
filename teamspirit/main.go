@@ -78,7 +78,7 @@ func (t *TeamSpirit) login() (*agouti.Page, error) {
 		return nil, fmt.Errorf("failed to click login button: %s", err)
 	}
 
-	time.Sleep(11 * time.Second)
+	time.Sleep(10 * time.Second)
 	return page, nil
 }
 
@@ -92,36 +92,42 @@ func (t *TeamSpirit) focusOnTimeSheet() error {
 }
 
 func (t *TeamSpirit) BulkInput() error {
-	if err := t.InputWorkTime(t.page, 1, "10:02", false); err != nil {
+	if err := t.InputWorkTime(1, "10:02", "19:00"); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *TeamSpirit) InputWorkTime(page *agouti.Page, day int, inputTime string, isStart bool) error {
-	if err := page.FindByID(fmt.Sprintf("ttvTimeSt%04d-%02d-%02d", 2019, 4, day)).Click(); err != nil {
-		return fmt.Errorf("failed to click 2019/4/1: %s", err)
+func (t *TeamSpirit) InputWorkTime(day int, startTime, endTime string) error {
+	if err := t.page.FindByID(
+		fmt.Sprintf("ttvTimeSt%04d-%02d-%02d", t.year, t.month, day),
+	).Click(); err != nil {
+		return fmt.Errorf("failed to click %04d/%02d/%02d: %s", t.year, t.month, day, err)
 	}
-	dialog := page.FindByID("dialogInputTime")
-	var inputTagId string
-	if isStart {
-		inputTagId = "startTime"
-	} else {
-		inputTagId = "endTime"
+	dialog := t.page.FindByID("dialogInputTime")
+	if err := inputTime(dialog, "startTime", startTime); err != nil {
+		return err
 	}
-	inputTag := dialog.FindByID(inputTagId)
-	if err := inputTag.Click(); err != nil {
-		return fmt.Errorf("failed to click start time: %s", err)
-	}
-	if err := inputTag.Clear(); err != nil {
-		return fmt.Errorf("failed to clear start time: %s", err)
-	}
-	if err := inputTag.Fill(inputTime); err != nil {
-		return fmt.Errorf("failed to input start time: %s", err)
+	if err := inputTime(dialog, "endTime", endTime); err != nil {
+		return err
 	}
 	if err := dialog.FindByID("dlgInpTimeOk").Click(); err != nil {
 		return fmt.Errorf("failed to click OK button: %s", err)
 	}
 	time.Sleep(1 * time.Second)
+	return nil
+}
+
+func inputTime(dialog *agouti.Selection, tagName, inputTime string) error {
+	inputTag := dialog.FindByID(tagName)
+	if err := inputTag.Click(); err != nil {
+		return fmt.Errorf("failed to click %s: %s", tagName, err)
+	}
+	if err := inputTag.Clear(); err != nil {
+		return fmt.Errorf("failed to clear %s: %s", tagName, err)
+	}
+	if err := inputTag.Fill(inputTime); err != nil {
+		return fmt.Errorf("failed to input %s: %s", tagName, err)
+	}
 	return nil
 }

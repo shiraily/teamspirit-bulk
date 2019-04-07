@@ -13,7 +13,7 @@ func main() {
 	}
 
 	// input 1
-	if err := ts.InputWorkTime(t.page, 1, "10:02", false); err != nil {
+	if err := ts.InputWorkTime(1, "10:02", "19:07"); err != nil {
 		log.Fatal(err)
 	}
 	log.Println("success to input time sheet")
