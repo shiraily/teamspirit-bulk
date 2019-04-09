@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/shiraily/teamspirit-bulk/model"
+
 	"github.com/sclevine/agouti"
 )
 
@@ -25,12 +27,6 @@ var (
 		}),
 	)
 )
-
-type WorkTime struct {
-	Day       int
-	StartTime string
-	EndTime   string
-}
 
 //TODO defer Driver.Stop
 type TeamSpirit struct {
@@ -98,7 +94,7 @@ func (t *TeamSpirit) focusOnTimeSheet() error {
 	return nil
 }
 
-func (t *TeamSpirit) BulkInput(workTimes []WorkTime) error {
+func (t *TeamSpirit) BulkInput(workTimes []model.WorkTime) error {
 	var err error
 	for _, workTime := range workTimes {
 		if err := t.Input(workTime); err != nil {
@@ -109,7 +105,7 @@ func (t *TeamSpirit) BulkInput(workTimes []WorkTime) error {
 	return err
 }
 
-func (t *TeamSpirit) Input(workTime WorkTime) error {
+func (t *TeamSpirit) Input(workTime model.WorkTime) error {
 	if err := t.page.FindByID(
 		fmt.Sprintf("ttvTimeSt%04d-%02d-%02d", t.year, t.month, workTime.Day),
 	).Click(); err != nil {

@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 
+	"github.com/shiraily/teamspirit-bulk/model"
+
 	"github.com/shiraily/teamspirit-bulk/teamspirit"
 )
 
@@ -13,7 +15,7 @@ func main() {
 	}
 
 	// input 1
-	wts := []teamspirit.WorkTime{
+	wts := []model.WorkTime{
 		{
 			Day:       1,
 			StartTime: "10:02",
