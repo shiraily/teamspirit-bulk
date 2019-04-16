@@ -69,43 +69,62 @@ func main() {
 		log.Fatal(err)
 	}
 
-	workTimes := [31]model.WorkTime{}
-	curDay := 1
-	curIsIn := true
+	dayWorkTime := map[int]model.WorkTime{}
+	var lastDay int
+	var lastHhmmStr string
 
 	for _, row := range res.Values {
 		isIn := row[0].(string) == "in"
-		//FIXME
-		if !(isIn == curIsIn) {
-			continue
-		}
 		str := row[1].(string)
-		log.Println(str)
-		group := regexp.MustCompile(".* ([0-3][0-9]).*at ([0-9]{2}.[0-9]{2})(AM|PM)").FindStringSubmatch(str)
-		log.Println(group)
+		group := regexp.MustCompile(
+			".* ([0-3][0-9]), [0-9]{4} at ([0-9]{2}.[0-9]{2})(AM|PM)",
+		).FindStringSubmatch(str)
+
 		day, _ := strconv.Atoi(group[1])
-		hhmm, _ := time.Parse("15:04", group[2])
+		hhmmStr := group[2]
+		hhmm, _ := time.Parse("15:04", hhmmStr)
+		hour := hhmm.Hour()
 		isAM := group[3] == "AM"
-		var hhmmStr string
-		//FIXME: some bugs
 		if isAM && hhmm.Before(timeDayStart) {
 			day -= 1
-			hhmmStr = strconv.Itoa(hhmm.Hour() + 24)
-		} else {
-			hhmmStr = hhmm.Format("15:04")
+			hhmmStr = fmt.Sprintf("%02d:%02d", hour+24, hhmm.Minute())
+		} else if !isAM && hour != 12 {
+			hhmmStr = fmt.Sprintf("%02d:%02d", hour+12, hhmm.Minute())
+			hhmm, _ = time.Parse("15:04", hhmmStr)
 		}
-		curDay = day
-		log.Printf("hhmm: %s", hhmmStr)
-		if curIsIn {
-			workTimes[curDay].StartTime = hhmm.String()
-			curIsIn = !curIsIn
-		} else {
-			workTimes[curDay].EndTime = hhmm.String()
+
+		if hhmm.After(timeDayStart) {
+			if isIn && dayWorkTime[day].StartTime == "" {
+				dayWorkTime[lastDay] = model.WorkTime{
+					Day:       lastDay,
+					StartTime: dayWorkTime[lastDay].StartTime,
+					EndTime:   lastHhmmStr,
+				}
+				dayWorkTime[day] = model.WorkTime{
+					Day:       day,
+					StartTime: hhmmStr,
+				}
+			} else if dayWorkTime[day].StartTime == "" {
+				continue
+			}
+		}
+
+		if !isIn {
+			lastDay = day
+			lastHhmmStr = hhmmStr
 		}
 	}
 
-}
+	dayWorkTime[lastDay] = model.WorkTime{
+		Day:       lastDay,
+		StartTime: dayWorkTime[lastDay].StartTime,
+		EndTime:   lastHhmmStr,
+	}
 
-func getTime(a string) (string, error) {
-	return "", nil
+	for day := 1; day <= 31; day++ {
+		if wt, ok := dayWorkTime[day]; ok {
+			log.Printf("%02d: %s - %s", day, wt.StartTime, wt.EndTime)
+		}
+	}
+	// TODO stash 0 day
 }
