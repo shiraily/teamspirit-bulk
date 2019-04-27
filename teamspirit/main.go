@@ -48,6 +48,7 @@ func NewTeamSpirit(driver *agouti.WebDriver) *TeamSpirit {
 	}
 }
 
+// TODO: close driver when some error
 func (t *TeamSpirit) Setup() error {
 	if err := t.Driver.Start(); err != nil {
 		return fmt.Errorf("failed to start Driver: %s", err)

@@ -3,32 +3,33 @@ package main
 import (
 	"log"
 
-	"github.com/shiraily/teamspirit-bulk/model"
-
+	"github.com/shiraily/teamspirit-bulk/googlesheets"
 	"github.com/shiraily/teamspirit-bulk/teamspirit"
 )
 
 func main() {
+	httpClient, err := googlesheets.NewGoogleSheetsClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+	sheet, err := googlesheets.NewTimeSheet(httpClient)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := sheet.Setup(); err != nil {
+		log.Fatal(err)
+	}
+	workTimes, err := sheet.GetWorkTimes()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	ts := teamspirit.NewTeamSpirit(teamspirit.DefaultDriver)
 	if err := ts.Setup(); err != nil {
 		log.Fatal(err)
 	}
-
-	// input 1
-	wts := []model.WorkTime{
-		{
-			Day:       1,
-			StartTime: "10:02",
-			EndTime:   "19:07",
-		},
-		{
-			Day:       2,
-			StartTime: "10:03",
-			EndTime:   "19:09",
-		},
-	}
-	err := ts.BulkInput(wts)
-	ts.Driver.Stop()
+	err = ts.BulkInput(workTimes)
+	ts.Driver.Stop() // TODO consider when should stop
 	if err != nil {
 		log.Fatal(err)
 	}

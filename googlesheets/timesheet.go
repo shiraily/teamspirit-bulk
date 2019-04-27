@@ -1,4 +1,4 @@
-package main
+package googlesheets
 
 import (
 	"fmt"
@@ -24,76 +24,77 @@ var (
 	strDayStart   = os.Getenv("TS_DAY_START")
 )
 
-func httpClient() (*http.Client, error) {
-	conf, err := google.JWTConfigFromJSON([]byte(clientSecret), "https://www.googleapis.com/auth/spreadsheets")
-	if err != nil {
-		return nil, err
-	}
-
-	return conf.Client(oauth2.NoContext), nil
+type TimeSheet struct {
+	sheetService *sheets.SpreadsheetsService
+	sheetID      string
+	timeDayStart time.Time
+	firstRow     int
 }
 
-func main() {
-	timeDayStart, err := time.Parse("15:04", strDayStart)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if noon, _ := time.Parse("15:04", "12:00"); !timeDayStart.Before(noon) {
-		log.Fatal(err)
-	}
-
-	client, err := httpClient()
-	if err != nil {
-		log.Fatal(err)
-	}
+func NewTimeSheet(client *http.Client) (*TimeSheet, error) {
 	sheetService, err := sheets.New(client)
 	if err != nil {
 		log.Fatalf("unable to retrieve Sheets Client %v", err)
 	}
 	ss := sheetService.Spreadsheets
 
-	res, err := ss.Values.Get(sheetId, fmt.Sprintf("%s!A1", sheetSetting)).Do()
+	return &TimeSheet{
+		sheetService: ss,
+	}, nil
+}
+
+func (t *TimeSheet) Setup() error {
+	t.sheetID = sheetId
+	timeDayStart, err := time.Parse("15:04", strDayStart)
 	if err != nil {
-		log.Fatalf("unable to get Spreadsheets. %v", err)
+		return fmt.Errorf("irregal time string format: %s", err)
+	}
+	if noon, _ := time.Parse("15:04", "12:00"); !timeDayStart.Before(noon) {
+		return fmt.Errorf("start work time should be before noon")
+	}
+	t.timeDayStart = timeDayStart
+
+	// first row
+	res, err := t.sheetService.Values.Get(sheetId, fmt.Sprintf("%s!A1", sheetSetting)).Do()
+	if err != nil {
+		return fmt.Errorf("unable to get Spreadsheets. %s", err)
 	}
 	if len(res.Values) == 0 {
-		log.Fatalf("failed to get A1")
+		return fmt.Errorf("failed to get A1 cell of %s", sheetSetting)
 	}
 	buf, ok := res.Values[0][0].(string)
 	if !ok {
-		log.Fatalf("failed to get first row: %s", res.Values[0][0])
+		return fmt.Errorf("failed to get first row. returned %s", res.Values[0][0])
 	}
-	firstRow, _ := strconv.Atoi(buf)
-	res, err = ss.Values.Get(sheetId, fmt.Sprintf("%s!A%d:B%d", sheetWorkTime, firstRow, firstRow+3000)).Do()
+	firstRow, err := strconv.Atoi(buf)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("firstRow: A1 cell should be integer: %s", err)
+	}
+	if firstRow < 1 {
+		return fmt.Errorf("firstRow is less than 1. actual=%d", firstRow)
+	}
+	t.firstRow = firstRow
+
+	return nil
+}
+
+func (t *TimeSheet) GetWorkTimes() ([]model.WorkTime, error) {
+	res, err := t.sheetService.Values.Get(
+		sheetId,
+		fmt.Sprintf("%s!A%d:B%d", sheetWorkTime, t.firstRow, t.firstRow+3000),
+	).Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get work time data: %s", err)
 	}
 
 	dayWorkTime := map[int]model.WorkTime{}
 	var lastDay int
 	var lastHhmmStr string
-
 	for _, row := range res.Values {
 		isIn := row[0].(string) == "in"
-		str := row[1].(string)
-		group := regexp.MustCompile(
-			".* ([0-3][0-9]), [0-9]{4} at ([0-9]{2}.[0-9]{2})(AM|PM)",
-		).FindStringSubmatch(str)
+		day, hhmmStr, hhmm := t.splitTimeFormat(row[1].(string))
 
-		day, _ := strconv.Atoi(group[1])
-		hhmmStr := group[2]
-		hhmm, _ := time.Parse("15:04", hhmmStr)
-		hour := hhmm.Hour()
-		isAM := group[3] == "AM"
-		if isAM && hhmm.Before(timeDayStart) {
-			day -= 1
-			hhmmStr = fmt.Sprintf("%02d:%02d", hour+24, hhmm.Minute())
-		} else if !isAM && hour != 12 {
-			hhmmStr = fmt.Sprintf("%02d:%02d", hour+12, hhmm.Minute())
-			hhmm, _ = time.Parse("15:04", hhmmStr)
-		}
-
-		if hhmm.After(timeDayStart) {
+		if hhmm.After(t.timeDayStart) {
 			if isIn && dayWorkTime[day].StartTime == "" {
 				dayWorkTime[lastDay] = model.WorkTime{
 					Day:       lastDay,
@@ -114,17 +115,46 @@ func main() {
 			lastHhmmStr = hhmmStr
 		}
 	}
-
 	dayWorkTime[lastDay] = model.WorkTime{
 		Day:       lastDay,
 		StartTime: dayWorkTime[lastDay].StartTime,
 		EndTime:   lastHhmmStr,
 	}
 
+	var workTimes []model.WorkTime
 	for day := 1; day <= 31; day++ {
 		if wt, ok := dayWorkTime[day]; ok {
+			workTimes = append(workTimes, dayWorkTime[day])
 			log.Printf("%02d: %s - %s", day, wt.StartTime, wt.EndTime)
 		}
 	}
-	// TODO stash 0 day
+	return workTimes, nil
+}
+
+// TODO unit test
+func (t *TimeSheet) splitTimeFormat(buf string) (int, string, time.Time) {
+	group := regexp.MustCompile(
+		".* ([0-3][0-9]), [0-9]{4} at ([0-9]{2}.[0-9]{2})(AM|PM)",
+	).FindStringSubmatch(buf)
+	day, _ := strconv.Atoi(group[1])
+	hhmmStr := group[2]
+	isAM := group[3] == "AM"
+	hhmm, _ := time.Parse("15:04", hhmmStr)
+	hour := hhmm.Hour()
+	if isAM && hhmm.Before(t.timeDayStart) {
+		day -= 1
+		hhmmStr = fmt.Sprintf("%02d:%02d", hour+24, hhmm.Minute())
+	} else if !isAM && hour != 12 {
+		hhmmStr = fmt.Sprintf("%02d:%02d", hour+12, hhmm.Minute())
+		hhmm, _ = time.Parse("15:04", hhmmStr)
+	}
+	return day, hhmmStr, hhmm
+}
+
+func NewGoogleSheetsClient() (*http.Client, error) {
+	conf, err := google.JWTConfigFromJSON([]byte(clientSecret), "https://www.googleapis.com/auth/spreadsheets")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read jwt: %s", err)
+	}
+	return conf.Client(oauth2.NoContext), nil
 }
