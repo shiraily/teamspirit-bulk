@@ -57,18 +57,18 @@ func (t *TimeSheet) Setup() error {
 	// first row
 	res, err := t.sheetService.Values.Get(sheetId, fmt.Sprintf("%s!A1", sheetSetting)).Do()
 	if err != nil {
-		return fmt.Errorf("unable to get Spreadsheets. %s", err)
+		return fmt.Errorf("unable to get settings sheets. %s", err)
 	}
 	if len(res.Values) == 0 {
-		return fmt.Errorf("failed to get A1 cell of %s", sheetSetting)
+		return fmt.Errorf("failed to get A1 cell. sheet=%s", sheetSetting)
 	}
 	buf, ok := res.Values[0][0].(string)
 	if !ok {
-		return fmt.Errorf("failed to get first row. returned %s", res.Values[0][0])
+		return fmt.Errorf("invalid first row. value=%s", res.Values[0][0])
 	}
 	firstRow, err := strconv.Atoi(buf)
 	if err != nil {
-		return fmt.Errorf("firstRow: A1 cell should be integer: %s", err)
+		return fmt.Errorf("firstRow is not integer: %s", err)
 	}
 	if firstRow < 1 {
 		return fmt.Errorf("firstRow is less than 1. actual=%d", firstRow)
@@ -131,7 +131,6 @@ func (t *TimeSheet) GetWorkTimes() ([]model.WorkTime, error) {
 	return workTimes, nil
 }
 
-// TODO unit test
 func (t *TimeSheet) splitTimeFormat(buf string) (int, string, time.Time) {
 	group := regexp.MustCompile(
 		".* ([0-3][0-9]), [0-9]{4} at ([0-9]{2}.[0-9]{2})(AM|PM)",
