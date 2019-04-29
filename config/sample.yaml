@@ -5,6 +5,6 @@ google_sheets:
   client_secret: '{"type": "service_account"}'
   time_day_start: "07:00"
 teamspirit:
-  domain: example.com
+  domain: "https://example.com"
   user: hoge@example.com
   password: xxx
