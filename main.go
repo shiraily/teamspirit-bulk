@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -13,7 +14,14 @@ import (
 )
 
 func main() {
-	buf, err := ioutil.ReadFile("./config/sample.yaml")
+	flag.String("", "", "config yaml file path")
+	flag.Parse()
+	args := flag.Args()
+	if len(args) == 0 {
+		flag.PrintDefaults()
+		log.Fatal("config yaml file path is not given")
+	}
+	buf, err := ioutil.ReadFile(args[0])
 	if err != nil {
 		fmt.Println(err)
 		return
