@@ -1,0 +1,10 @@
+google_sheets:
+  sheet_id: sheet_id
+  sheet_work_time: sheet_name
+  sheet_setting: sheet_name
+  client_secret: '{"type": "service_account"}'
+  time_day_start: "07:00"
+teamspirit:
+  domain: example.com
+  user: hoge@example.com
+  password: xxx

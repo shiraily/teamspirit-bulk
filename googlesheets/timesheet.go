@@ -4,29 +4,20 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"time"
 
-	"github.com/shiraily/teamspirit-bulk/model"
-
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/sheets/v4"
-)
 
-var (
-	sheetId       = os.Getenv("TS_SHEET_ID")
-	sheetWorkTime = os.Getenv("TS_SHEET_WORK_TIME")
-	sheetSetting  = os.Getenv("TS_SHEET_SETTING")
-	clientSecret  = os.Getenv("TS_CLIENT_SECRET")
-	strDayStart   = os.Getenv("TS_DAY_START")
+	"github.com/shiraily/teamspirit-bulk/config"
+	"github.com/shiraily/teamspirit-bulk/model"
 )
 
 type TimeSheet struct {
 	sheetService *sheets.SpreadsheetsService
-	sheetID      string
 	timeDayStart time.Time
 	firstRow     int
 }
@@ -44,8 +35,7 @@ func NewTimeSheet(client *http.Client) (*TimeSheet, error) {
 }
 
 func (t *TimeSheet) Setup() error {
-	t.sheetID = sheetId
-	timeDayStart, err := time.Parse("15:04", strDayStart)
+	timeDayStart, err := time.Parse("15:04", config.Cfg.GoogleSheets.TimeDayStart)
 	if err != nil {
 		return fmt.Errorf("irregal time string format: %s", err)
 	}
@@ -55,12 +45,12 @@ func (t *TimeSheet) Setup() error {
 	t.timeDayStart = timeDayStart
 
 	// first row
-	res, err := t.sheetService.Values.Get(sheetId, fmt.Sprintf("%s!A1", sheetSetting)).Do()
+	res, err := t.sheetService.Values.Get(config.Cfg.GoogleSheets.SheetID, fmt.Sprintf("%s!A1", config.Cfg.GoogleSheets.SheetSetting)).Do()
 	if err != nil {
 		return fmt.Errorf("unable to get settings sheets. %s", err)
 	}
 	if len(res.Values) == 0 {
-		return fmt.Errorf("failed to get A1 cell. sheet=%s", sheetSetting)
+		return fmt.Errorf("failed to get A1 cell. sheet=%s", config.Cfg.GoogleSheets.SheetSetting)
 	}
 	buf, ok := res.Values[0][0].(string)
 	if !ok {
@@ -80,8 +70,8 @@ func (t *TimeSheet) Setup() error {
 
 func (t *TimeSheet) GetWorkTimes() ([]model.WorkTime, error) {
 	res, err := t.sheetService.Values.Get(
-		sheetId,
-		fmt.Sprintf("%s!A%d:B%d", sheetWorkTime, t.firstRow, t.firstRow+3000),
+		config.Cfg.GoogleSheets.SheetID,
+		fmt.Sprintf("%s!A%d:B%d", config.Cfg.GoogleSheets.SheetWorkTime, t.firstRow, t.firstRow+3000),
 	).Do()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get work time data: %s", err)
@@ -151,7 +141,7 @@ func (t *TimeSheet) splitTimeFormat(buf string) (int, string, time.Time) {
 }
 
 func NewGoogleSheetsClient() (*http.Client, error) {
-	conf, err := google.JWTConfigFromJSON([]byte(clientSecret), "https://www.googleapis.com/auth/spreadsheets")
+	conf, err := google.JWTConfigFromJSON([]byte(config.Cfg.GoogleSheets.ClientSecret), "https://www.googleapis.com/auth/spreadsheets")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read jwt: %s", err)
 	}

@@ -3,12 +3,12 @@ package teamspirit
 import (
 	"fmt"
 	"log"
-	"os"
 	"time"
 
-	"github.com/shiraily/teamspirit-bulk/model"
-
 	"github.com/sclevine/agouti"
+
+	"github.com/shiraily/teamspirit-bulk/config"
+	"github.com/shiraily/teamspirit-bulk/model"
 )
 
 const (
@@ -16,13 +16,9 @@ const (
 )
 
 var (
-	domain   = os.Getenv("TS_DOMAIN")
-	userName = os.Getenv("TS_USER_NAME")
-	password = os.Getenv("TS_PASSWORD")
-
 	DefaultDriver = agouti.ChromeDriver(
 		agouti.ChromeOptions("args", []string{
-			//TODO "--headless",
+			//"--headless",
 			"--disable-notifications",
 		}),
 	)
@@ -69,13 +65,13 @@ func (t *TeamSpirit) login() (*agouti.Page, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open page: %s", err)
 	}
-	if err := page.Navigate(domain + pathWorkTime); err != nil {
+	if err := page.Navigate(config.Cfg.TeamSpirit.Domain + pathWorkTime); err != nil {
 		return nil, fmt.Errorf("failed to inputWorkTime: %s", err)
 	}
-	if err := page.FindByID("username").Fill(userName); err != nil {
+	if err := page.FindByID("username").Fill(config.Cfg.TeamSpirit.User); err != nil {
 		return nil, fmt.Errorf("failed to fill user name: %s", err)
 	}
-	if err := page.FindByID("password").Fill(password); err != nil {
+	if err := page.FindByID("password").Fill(config.Cfg.TeamSpirit.Password); err != nil {
 		return nil, fmt.Errorf("failed to fill password: %s", err)
 	}
 	if err := page.FindByID("Login").Click(); err != nil {
