@@ -77,18 +77,18 @@ func (t *TeamSpirit) login() (*agouti.Page, error) {
 	if err := page.FindByID("Login").Click(); err != nil {
 		return nil, fmt.Errorf("failed to click login button: %s", err)
 	}
-
-	time.Sleep(10 * time.Second)
 	return page, nil
 }
 
 func (t *TeamSpirit) focusOnTimeSheet() error {
-	if err := t.page.FindByXPath(
-		"//div[@class='slds-template__container']//div[@class='oneAlohaPage'][last()]//iframe",
-	).SwitchToFrame(); err != nil {
-		return fmt.Errorf("failed to switch to iframe: %s", err)
-	}
-	return nil
+	return retry(func() error {
+		if errFind := t.page.FindByXPath(
+			"//div[@class='slds-template__container']//div[@class='oneAlohaPage'][last()]//iframe",
+		).SwitchToFrame(); errFind != nil {
+			return fmt.Errorf("failed to switch to iframe: %s", errFind)
+		}
+		return nil
+	}, 20)
 }
 
 func (t *TeamSpirit) BulkInput(workTimes []model.WorkTime) error {
@@ -103,10 +103,15 @@ func (t *TeamSpirit) BulkInput(workTimes []model.WorkTime) error {
 }
 
 func (t *TeamSpirit) Input(workTime model.WorkTime) error {
-	if err := t.page.FindByID(
-		fmt.Sprintf("ttvTimeSt%04d-%02d-%02d", t.year, t.month, workTime.Day),
-	).Click(); err != nil {
-		return fmt.Errorf("failed to click %04d/%02d/%02d: %s", t.year, t.month, workTime.Day, err)
+	if err := retry(func() error {
+		if errFind := t.page.FindByID(
+			fmt.Sprintf("ttvTimeSt%04d-%02d-%02d", t.year, t.month, workTime.Day),
+		).Click(); errFind != nil {
+			return fmt.Errorf("failed to click %04d/%02d/%02d: %s", t.year, t.month, workTime.Day, errFind)
+		}
+		return nil
+	}, 10); err != nil {
+		return err
 	}
 	dialog := t.page.FindByID("dialogInputTime")
 	if err := inputTime(dialog, "startTime", workTime.StartTime); err != nil {
@@ -118,7 +123,6 @@ func (t *TeamSpirit) Input(workTime model.WorkTime) error {
 	if err := dialog.FindByID("dlgInpTimeOk").Click(); err != nil {
 		return fmt.Errorf("failed to click OK button: %s", err)
 	}
-	time.Sleep(5 * time.Second)
 	return nil
 }
 
@@ -134,4 +138,17 @@ func inputTime(dialog *agouti.Selection, tagName, inputTime string) error {
 		return fmt.Errorf("failed to input %s: %s", tagName, err)
 	}
 	return nil
+}
+
+func retry(fn func() error, count int) error {
+	var err error
+	for i := 0; i < count; i++ {
+		err = fn()
+		if err != nil {
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		break
+	}
+	return err
 }

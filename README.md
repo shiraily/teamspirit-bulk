@@ -8,6 +8,7 @@ teamspirit-bulkは、IFTTTでGoogleスプレッドシートに記録した特定
 - AndroidのIFTTTアプリ
   - iPhoneは未検証
 - Chrome
+- [ChromeDriver](https://qiita.com/tenten0213/items/1f897ff8a64bd8b5270c)
 - Golang
 
 ## 機能
@@ -56,7 +57,7 @@ IFTTTで記録したデータの中から今月の最初のデータの行番号
 
 - jsonファイルをダウンロード後保管（あとで使います）
 - スプレッドシートを開く>共有>サービスアカウントIDを共有先に設定
-  - サービスアカウントIDキーの作成時または[GCP>IAMと管理](https://console.cloud.google.com/iam-admin/iam)で確認できる
+  - サービスアカウントIDは、キーの作成時または[GCP>IAMと管理](https://console.cloud.google.com/iam-admin/iam)で確認できます
 
 ### yamlファイル
 
@@ -69,10 +70,9 @@ config/sample.yamlを参考に設定ファイルを作成します。
 
 ## 使い方
 
-以下を実行すると、実行した月のうち出勤した日の勤怠が自動入力されます。
+以下を実行すると、実行した現在時刻の月分の勤怠が自動入力されます。
 
 ```
-$ brew install chromedriver # mac
 $ git clone git@github.com:shiraily/teamspirit-bulk.git
 $ cd /path/to/teamspirit-bulk
 $ go get ./...
@@ -83,6 +83,8 @@ $ go run main.go /path/to/my.yaml
 
 ## Future work
 
+- csv出力に対応
 - 休憩時間がない場合の警告ポップアップへの対応
 - IFTTT以外の安定的な出退勤情報の利用
 - 先月分のデータ入力
+- 出勤打刻は一括入力ではなく出社打刻ボタンを押す
